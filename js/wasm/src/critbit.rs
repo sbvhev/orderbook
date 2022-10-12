@@ -51,6 +51,7 @@ pub struct LeafNode {
     pub key: u128,
     pub callback_info: Vec<u8>,
     pub base_quantity: u64,
+    pub max_ts: u64,
 }
 
 impl LeafNode {
@@ -58,6 +59,7 @@ impl LeafNode {
         writer.write_all(&self.key.to_le_bytes())?;
         writer.write_all(&self.callback_info)?;
         writer.write_all(&self.base_quantity.to_le_bytes())?;
+        writer.write_all(&self.max_ts.to_le_bytes())?;
         Ok(())
     }
 
@@ -73,10 +75,16 @@ impl LeafNode {
                 .try_into()
                 .map_err(|_| std::io::ErrorKind::InvalidData)?,
         );
+        let max_ts = u64::from_le_bytes(
+            buf[callback_info_len + 24..callback_info_len + 32]
+                .try_into()
+                .map_err(|_| std::io::ErrorKind::InvalidData)?,
+        );
         Ok(Self {
             key,
             callback_info,
             base_quantity,
+            max_ts,
         })
     }
 }
@@ -84,11 +92,17 @@ impl LeafNode {
 pub const INNER_NODE_SIZE: usize = 32;
 
 impl LeafNode {
-    pub fn new(key: u128, callback_info: Vec<u8>, quantity: u64) -> Self {
+    pub fn new(
+        key: u128,
+        callback_info: Vec<u8>,
+        quantity: u64,
+        max_ts: u64
+    ) -> Self {
         LeafNode {
             key,
             callback_info,
             base_quantity: quantity,
+            max_ts,
         }
     }
 

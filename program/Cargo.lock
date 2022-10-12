@@ -272,8 +272,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "bonfida-macros"
-version = "0.2.3"
-source = "git+https://github.com/Bonfida/bonfida-utils.git?branch=add-rounding-direction#f24f508be40c541a463e308c4dbe05de13b97a5d"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f5ace5ed40eb56cd6d6a0de41bc2e919af6047d98f7e502d06fa201a7814ad4"
 dependencies = [
  "proc-macro2 1.0.38",
  "quote 1.0.18",
@@ -284,7 +285,7 @@ dependencies = [
 [[package]]
 name = "bonfida-utils"
 version = "0.3.0"
-source = "git+https://github.com/Bonfida/bonfida-utils.git?branch=add-rounding-direction#f24f508be40c541a463e308c4dbe05de13b97a5d"
+source = "git+https://github.com/Bonfida/bonfida-utils.git#1c53fb0b489ae7af77f0a62b0b8442c13b93e378"
 dependencies = [
  "bonfida-macros",
  "borsh",

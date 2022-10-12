@@ -3,12 +3,13 @@ use agnostic_orderbook::state::{market_state::MarketState, OrderSummary};
 use agnostic_orderbook::state::{AccountTag, SelfTradeBehavior, Side};
 use bonfida_utils::BorshSize;
 use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::clock::Clock;
 use solana_program::program_option::COption;
 use solana_program::program_pack::Pack;
 use solana_program::pubkey::Pubkey;
 use solana_program::system_instruction::{create_account, transfer};
 use solana_program::system_program;
-use solana_program_test::{processor, ProgramTest};
+use solana_program_test::{processor, ProgramTest, ProgramTestContext};
 use solana_sdk::account::Account;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signature::Signer;
@@ -40,8 +41,7 @@ async fn test_agnostic_orderbook() {
     let mut mint_data = vec![0; spl_token::state::Mint::LEN];
 
     let register_account = Pubkey::new_unique();
-
-    println!("Register Account: {}", register_account);
+    let register_account2 = Pubkey::new_unique();
 
     spl_token::state::Mint {
         mint_authority: COption::None,
@@ -54,6 +54,16 @@ async fn test_agnostic_orderbook() {
 
     program_test.add_account(
         register_account,
+        Account {
+            lamports: 1_000_000,
+            data: vec![0; 42],
+            owner: agnostic_orderbook::ID,
+            ..Account::default()
+        },
+    );
+
+    program_test.add_account(
+        register_account2,
         Account {
             lamports: 1_000_000,
             data: vec![0; 42],
@@ -82,8 +92,6 @@ async fn test_agnostic_orderbook() {
     )
     .await
     .unwrap();
-
-    println!("Market Account: {}", market_account.pubkey());
     let market_account =
         create_market_and_accounts(&mut prg_test_ctx, register_account, agnostic_orderbook::ID)
             .await;
@@ -113,6 +121,9 @@ async fn test_agnostic_orderbook() {
     .await
     .unwrap();
 
+    let clock: Clock = prg_test_ctx.banks_client.get_sysvar().await.unwrap();
+    let cur_ts = clock.unix_timestamp as u64;
+
     // New Order
     let new_order_instruction = new_order(
         new_order::Accounts {
@@ -132,7 +143,7 @@ async fn test_agnostic_orderbook() {
             post_allowed: true,
             self_trade_behavior: SelfTradeBehavior::CancelProvide,
             match_limit: 3,
-            max_ts: u64::MAX,
+            max_ts: cur_ts + 10,
         },
     );
 
@@ -153,6 +164,8 @@ async fn test_agnostic_orderbook() {
     )
     .await
     .unwrap();
+
+    advance_clock_by_secs(&mut prg_test_ctx, 30).await;
 
     // New Order
     let new_order_instruction = new_order(
@@ -179,6 +192,47 @@ async fn test_agnostic_orderbook() {
     sign_send_instructions(&mut prg_test_ctx, vec![new_order_instruction], vec![])
         .await
         .unwrap();
+    
+    // New Order
+    let new_order_instruction = new_order(
+        new_order::Accounts {
+            market: &market_account,
+            event_queue: &market_state.event_queue,
+            bids: &market_state.bids,
+            asks: &market_state.asks,
+        },
+        register_account2,
+        new_order::Params {
+            max_base_qty: 200000,
+            max_quote_qty: 200000,
+            limit_price: 1000 << 32,
+            side: Side::Ask,
+            callback_info: C(Pubkey::new_unique().to_bytes()),
+            post_only: false,
+            post_allowed: true,
+            self_trade_behavior: SelfTradeBehavior::CancelProvide,
+            match_limit: 3,
+            max_ts: u64::MAX,
+        },
+    );
+
+    sign_send_instructions(&mut prg_test_ctx, vec![new_order_instruction], vec![])
+        .await
+        .unwrap();
+
+    // Transfer the fee, again
+    let transfer_new_order_fee_instruction = transfer(
+        &prg_test_ctx.payer.pubkey(),
+        &market_account,
+        cranker_reward + 2,
+    );
+    sign_send_instructions(
+        &mut prg_test_ctx,
+        vec![transfer_new_order_fee_instruction],
+        vec![],
+    )
+    .await
+    .unwrap();
 
     let mut market_data = prg_test_ctx
         .banks_client
@@ -199,7 +253,17 @@ async fn test_agnostic_orderbook() {
     let order_summary: Option<OrderSummary> = Option::deserialize(&mut register_acc).unwrap();
     println!("Parsed order summary {:#?}", order_summary);
 
-    // Cancel order
+    let mut register_acc2 = &prg_test_ctx
+        .banks_client
+        .get_account(register_account2)
+        .await
+        .unwrap()
+        .unwrap()
+        .data as &[u8];
+    let order_summary2: Option<OrderSummary> = Option::deserialize(&mut register_acc2).unwrap();
+    println!("Parsed order summary 2 {:#?}", order_summary2);
+
+    // Cancel orders
     let cancel_order_instruction = cancel_order(
         cancel_order::Accounts {
             market: &market_account,
@@ -210,6 +274,22 @@ async fn test_agnostic_orderbook() {
         register_account,
         cancel_order::Params {
             order_id: order_summary.unwrap().posted_order_id.unwrap(),
+        },
+    );
+    sign_send_instructions(&mut prg_test_ctx, vec![cancel_order_instruction], vec![])
+        .await
+        .unwrap();
+
+    let cancel_order_instruction = cancel_order(
+        cancel_order::Accounts {
+            market: &market_account,
+            event_queue: &market_state.event_queue,
+            bids: &market_state.bids,
+            asks: &market_state.asks,
+        },
+        register_account,
+        cancel_order::Params {
+            order_id: order_summary2.unwrap().posted_order_id.unwrap(),
         },
     );
     sign_send_instructions(&mut prg_test_ctx, vec![cancel_order_instruction], vec![])
@@ -263,4 +343,15 @@ async fn test_agnostic_orderbook() {
     sign_send_instructions(&mut prg_test_ctx, vec![close_market_instruction], vec![])
         .await
         .unwrap();
+}
+
+
+pub async fn advance_clock_by_secs(prg_test_ctx: &mut ProgramTestContext, secs: u64) {
+    let mut clock: Clock = prg_test_ctx.banks_client.get_sysvar().await.unwrap();
+    let target_timestamp = clock.unix_timestamp as u64 + secs;
+
+    while clock.unix_timestamp as u64 <= target_timestamp {
+        prg_test_ctx.warp_to_slot(clock.slot + 400).unwrap();
+        clock = prg_test_ctx.banks_client.get_sysvar().await.unwrap();
+    }
 }

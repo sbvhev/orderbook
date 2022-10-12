@@ -40,6 +40,7 @@ export class InnerNode {
 export class LeafNode {
   key: BN;
   baseQuantity: BN;
+  maxTs: BN;
 
   static LEN = 24;
 
@@ -51,14 +52,16 @@ export class LeafNode {
         fields: [
           ["key", "u128"],
           ["baseQuantity", "u64"],
+          ["maxTs", "u64"],
         ],
       },
     ],
   ]);
 
-  constructor(arg: { key: BN; baseQuantity: BN }) {
+  constructor(arg: { key: BN; baseQuantity: BN; maxTs; BN}) {
     this.key = arg.key;
     this.baseQuantity = arg.baseQuantity;
+    this.maxTs = arg.maxTs;
   }
 
   /**

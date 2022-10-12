@@ -9,6 +9,7 @@ use bonfida_utils::{BorshSize, InstructionsAccount};
 
 pub use crate::processor::{
     cancel_order, close_market, consume_events, create_market, mass_cancel_orders, new_order,
+    prune_orders,
 };
 #[derive(BorshDeserialize, BorshSerialize, FromPrimitive)]
 /// Describes all possible instructions and their required accounts
@@ -88,6 +89,18 @@ pub enum AgnosticOrderbookInstruction {
     /// | 3     | ✅       | ❌     | The asks account        |
     /// | 4     | ❌       | ✅     | The caller authority    |
     MassCancelOrders,
+    /// Prune orders from the orderbook.
+    ///
+    /// Required accounts
+    ///
+    /// | index | writable | signer | description             |
+    /// |-------|----------|--------|-------------------------|
+    /// | 0     | ✅       | ❌     | The market account      |
+    /// | 1     | ✅       | ❌     | The event queue account |
+    /// | 2     | ✅       | ❌     | The bids account        |
+    /// | 3     | ✅       | ❌     | The asks account        |
+    /// | 4     | ❌       | ✅     | The caller authority    |
+    PruneOrders,
 }
 
 /**
@@ -216,6 +229,25 @@ pub fn mass_cancel_orders(
     let mut i = accounts.get_instruction(
         crate::id(),
         AgnosticOrderbookInstruction::CloseMarket as u8,
+        params,
+    );
+    i.accounts.push(AccountMeta {
+        pubkey: register_account,
+        is_signer: false,
+        is_writable: true,
+    });
+    i
+}
+
+/// Prune orders from the order book
+pub fn prune_orders(
+    accounts: prune_orders::Accounts<Pubkey>,
+    register_account: Pubkey,
+    params: prune_orders::Params,
+) -> Instruction {
+    let mut i = accounts.get_instruction(
+        crate::id(),
+        AgnosticOrderbookInstruction::PruneOrders as u8,
         params,
     );
     i.accounts.push(AccountMeta {

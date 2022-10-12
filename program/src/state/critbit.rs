@@ -42,6 +42,8 @@ pub struct LeafNode {
     pub key: u128,
     /// The quantity of base asset associated with the underlying order
     pub base_quantity: u64,
+    /// The maximum timestamp at which this order is able to be matched against
+    pub max_ts: u64,
 }
 
 impl LeafNode {
@@ -696,6 +698,7 @@ mod tests {
                 let leaf = LeafNode {
                     key,
                     base_quantity: qty,
+                    max_ts: u64::MAX
                 };
 
                 println!("key : {:x}", key);
@@ -807,6 +810,7 @@ mod tests {
                         let leaf = LeafNode {
                             key,
                             base_quantity: qty,
+                            max_ts: u64::MAX
                         };
                         let (leaf_h, old_leaf) = slab.insert_leaf(&leaf).unwrap();
                         let old_owner = *slab.get_callback_info(leaf_h);

@@ -111,11 +111,37 @@ impl<'a, C: CallbackInfo> OrderBookState<'a, C>
 where
     <C as CallbackInfo>::CallbackId: PartialEq,
 {
+    pub(crate) fn prune_orders(
+        &mut self,
+        num_orders_to_prune: u64,
+        side: Side,
+        event_queue: &mut EventQueue<'a, C>,
+    ) -> Result<(), AoError> {
+        let slab = self.get_tree(side);
+        for _ in 0..num_orders_to_prune {
+            let boot_candidate = slab.find_min().expect("Should be a bid/ask there");
+            let boot_candidate_key = slab.leaf_nodes[boot_candidate as usize].key;
+            let (order, callback_info_booted) = slab.remove_by_key(boot_candidate_key).unwrap();
+            let out = OutEvent {
+                side: side as u8,
+                order_id: order.order_id(),
+                base_size: order.base_quantity,
+                tag: EventTag::Out as u8,
+                _padding: [0; 14],
+            };
+            event_queue
+                .push_back(out, Some(callback_info_booted), None)
+                .map_err(|_| AoError::EventQueueFull)?;
+        }
+        Ok(())
+    }
+
     pub fn new_order(
         &mut self,
         params: new_order::Params<C>,
         event_queue: &mut EventQueue<'a, C>,
         min_base_order_size: u64,
+        cur_ts: u64,
     ) -> Result<OrderSummary, AoError> {
         let new_order::Params {
             max_base_qty,
@@ -126,6 +152,7 @@ where
             post_only,
             post_allowed,
             self_trade_behavior,
+            max_ts,
             mut match_limit,
         } = params;
 
@@ -149,6 +176,33 @@ where
             let opposite_slab = self.get_tree(side.opposite());
 
             let mut best_bo_ref = &mut opposite_slab.leaf_nodes[best_bo_h as usize];
+
+            // The order on the book has exceeded max ts, we will boot it
+            // and continue attempting to match
+            if best_bo_ref.max_ts < cur_ts {
+                msg!("Max timestamp for best offer exceeded, booting");
+                let best_offer_id = best_bo_ref.order_id();
+                let provide_out_callback_info =
+                    &opposite_slab.callback_infos[best_bo_h as usize];
+                let provide_out = OutEvent {
+                    side: side.opposite() as u8,
+                    order_id: best_offer_id,
+                    base_size: best_bo_ref.base_quantity,
+                    tag: EventTag::Out as u8,
+                    _padding: [0; 14],
+                };
+                event_queue
+                    .push_back(provide_out, Some(provide_out_callback_info), None)
+                    .map_err(|_| AoError::EventQueueFull)?;
+
+                self.get_tree(side.opposite())
+                    .remove_by_key(best_offer_id)
+                    .unwrap();
+
+                match_limit -= 1;
+
+                continue;
+            }
 
             let trade_price = best_bo_ref.price();
             crossed = match side {
@@ -274,6 +328,7 @@ where
         let new_leaf = LeafNode {
             key: new_leaf_order_id,
             base_quantity: base_qty_to_post,
+            max_ts
         };
         let insert_result = self.get_tree(side).insert_leaf(&new_leaf);
         let k = if let Err(AoError::SlabOutOfSpace) = insert_result {
@@ -391,9 +446,11 @@ mod tests {
                     post_only: false,
                     post_allowed: false,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(event_queue.header.count == 0);
@@ -417,9 +474,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -445,9 +504,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -473,9 +534,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -502,9 +565,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -563,9 +628,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::AbortTransaction,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap_err();
         assert!(matches!(r, AoError::WouldSelfTrade));
@@ -592,9 +659,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::CancelProvide,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -632,9 +701,11 @@ mod tests {
                     post_only: false,
                     post_allowed: false,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(event_queue.header.count == 0);
@@ -666,9 +737,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -695,9 +768,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -724,9 +799,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -769,9 +846,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_none());
@@ -806,9 +885,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -831,9 +912,11 @@ mod tests {
                     post_only: false,
                     post_allowed: false,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(event_queue.header.count == 0);
@@ -863,9 +946,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -892,9 +977,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -921,9 +1008,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_some());
@@ -966,9 +1055,11 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
+                    max_ts: u64::MAX
                 },
                 &mut event_queue,
                 10,
+                u64::MIN,
             )
             .unwrap();
         assert!(posted_order_id.is_none());

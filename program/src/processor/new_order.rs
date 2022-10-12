@@ -8,7 +8,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     msg,
     program_error::ProgramError,
-    pubkey::Pubkey,
+    pubkey::Pubkey, clock::Clock, sysvar::Sysvar,
 };
 
 use crate::{
@@ -53,6 +53,8 @@ pub struct Params<C> {
     pub post_allowed: bool,
     /// Describes what would happen if this order was matched against an order with an equal `callback_info` field.
     pub self_trade_behavior: SelfTradeBehavior,
+    /// The max timestamp at which the posted order will be able to be matched against.
+    pub max_ts: u64,
 }
 
 impl<C: BorshSize> BorshSize for Params<C> {
@@ -66,6 +68,7 @@ impl<C: BorshSize> BorshSize for Params<C> {
             + self.post_only.borsh_len()
             + self.post_allowed.borsh_len()
             + self.self_trade_behavior.borsh_len()
+            + self.max_ts.borsh_len()
     }
 }
 
@@ -147,9 +150,10 @@ where
 
     let mut event_queue_guard = accounts.event_queue.data.borrow_mut();
     let mut event_queue = EventQueue::from_buffer(&mut event_queue_guard, AccountTag::EventQueue)?;
+    let cur_ts = Clock::get()?.unix_timestamp as u64;
 
     let order_summary =
-        order_book.new_order(params, &mut event_queue, market_state.min_base_order_size)?;
+        order_book.new_order(params, &mut event_queue, market_state.min_base_order_size, cur_ts)?;
     msg!("Order summary : {:?}", order_summary);
 
     Ok(order_summary)

@@ -208,7 +208,7 @@ impl<'queue, C> EventQueue<'queue, C> {
         let account_len = buffer.len();
         if account_len < HEADER_OFFSET + 5 * event_size {
             msg!("The event queue account is too small!");
-            return Err(ProgramError::InvalidAccountData);
+            return Err(ProgramError::AccountDataTooSmall);
         }
         if (account_len - HEADER_OFFSET) % event_size != 0 {
             msg!("Event queue account size is invalid!");

@@ -35,6 +35,8 @@ pub async fn create_market_and_accounts(
     .await
     .unwrap();
 
+    println!("Market Account: {}", market_account.pubkey());
+
     // Create event queue account
     let event_queue_account = Keypair::new();
     let space = EventQueue::<[u8; 32]>::compute_allocation_size(1000);
@@ -52,6 +54,8 @@ pub async fn create_market_and_accounts(
     )
     .await
     .unwrap();
+
+    println!("EQ Account: {}", event_queue_account.pubkey());
 
     // Create bids account
     let bids_account = Keypair::new();
@@ -71,6 +75,8 @@ pub async fn create_market_and_accounts(
     .await
     .unwrap();
 
+    println!("Bids Account: {}", bids_account.pubkey());
+
     // Create asks account
     let asks_account = Keypair::new();
     let create_asks_account_instruction = create_account(
@@ -87,6 +93,8 @@ pub async fn create_market_and_accounts(
     )
     .await
     .unwrap();
+
+    println!("Asks Account: {}", asks_account.pubkey());
 
     // Create Market
     let create_market_instruction = create_market(
