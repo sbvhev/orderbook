@@ -180,7 +180,6 @@ where
             // The order on the book has exceeded max ts, we will boot it
             // and continue attempting to match
             if best_bo_ref.max_ts < cur_ts {
-                msg!("Max timestamp for best offer exceeded, booting");
                 let best_offer_id = best_bo_ref.order_id();
                 let provide_out_callback_info =
                     &opposite_slab.callback_infos[best_bo_h as usize];

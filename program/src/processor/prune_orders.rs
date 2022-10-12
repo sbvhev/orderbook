@@ -109,7 +109,7 @@ where
     order_book.prune_orders(num_asks_to_prune, Side::Ask, &mut event_queue)?;
 
     msg!(
-        "num bids pruned: {}, num asks pruned: {}",
+        "Bids pruned: {} - Asks pruned: {}",
         num_bids_to_prune,
         num_asks_to_prune
     );
