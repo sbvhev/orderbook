@@ -42,7 +42,7 @@ export class LeafNode {
   baseQuantity: BN;
   maxTs: BN;
 
-  static LEN = 24;
+  static LEN = 32;
 
   static schema: Schema = new Map([
     [
