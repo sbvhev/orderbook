@@ -17,7 +17,7 @@ pub enum AoError {
     #[error("An invalid event queue account has been provided.")]
     WrongEventQueueAccount,
     #[error("An invalid caller authority account has been provided.")]
-    WrongCallerAuthority,
+    WrongCallerAuthority, // 5
     #[error("The event queue is full.")]
     EventQueueFull,
     #[error("The order could not be found.")]
@@ -27,7 +27,7 @@ pub enum AoError {
     #[error("The market's memory is full.")]
     SlabOutOfSpace,
     #[error("The due fee was not payed.")]
-    FeeNotPayed,
+    FeeNotPayed, // 10
     #[error("This instruction is a No-op.")]
     NoOperations,
     #[error("The market is still active")]
@@ -37,7 +37,7 @@ pub enum AoError {
     #[error("The event queue should be owned by the AO program")]
     WrongEventQueueOwner,
     #[error("The bids account should be owned by the AO program")]
-    WrongBidsOwner,
+    WrongBidsOwner, // 15
     #[error("The asks account should be owned by the AO program")]
     WrongAsksOwner,
     #[error("The market account should be owned by the AO program")]
@@ -47,7 +47,7 @@ pub enum AoError {
     #[error("An invalid MSRM mint has been provided")]
     WrongMsrmMint,
     #[error("The MSRM token account does not have enough balances")]
-    WrongMsrmBalance,
+    WrongMsrmBalance, // 20
     #[error("Illegal MSRM token account owner")]
     IllegalMsrmOwner,
     #[error("Limit price must be a tick size multiple")]

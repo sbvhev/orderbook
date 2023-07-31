@@ -181,8 +181,7 @@ where
             // and continue attempting to match
             if best_bo_ref.max_ts < cur_ts {
                 let best_offer_id = best_bo_ref.order_id();
-                let provide_out_callback_info =
-                    &opposite_slab.callback_infos[best_bo_h as usize];
+                let provide_out_callback_info = &opposite_slab.callback_infos[best_bo_h as usize];
                 let provide_out = OutEvent {
                     side: side.opposite() as u8,
                     order_id: best_offer_id,
@@ -327,7 +326,7 @@ where
         let new_leaf = LeafNode {
             key: new_leaf_order_id,
             base_quantity: base_qty_to_post,
-            max_ts
+            max_ts,
         };
         let insert_result = self.get_tree(side).insert_leaf(&new_leaf);
         let k = if let Err(AoError::SlabOutOfSpace) = insert_result {
@@ -445,7 +444,7 @@ mod tests {
                     post_only: false,
                     post_allowed: false,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -473,7 +472,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -503,7 +502,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -533,7 +532,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -564,7 +563,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -627,7 +626,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::AbortTransaction,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -658,7 +657,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::CancelProvide,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -700,7 +699,7 @@ mod tests {
                     post_only: false,
                     post_allowed: false,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -736,7 +735,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -767,7 +766,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -798,7 +797,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -845,7 +844,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -884,7 +883,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -911,7 +910,7 @@ mod tests {
                     post_only: false,
                     post_allowed: false,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -945,7 +944,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -976,7 +975,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -1007,7 +1006,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
@@ -1054,7 +1053,7 @@ mod tests {
                     post_only: false,
                     post_allowed: true,
                     self_trade_behavior: SelfTradeBehavior::DecrementTake,
-                    max_ts: u64::MAX
+                    max_ts: u64::MAX,
                 },
                 &mut event_queue,
                 10,
